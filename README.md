@@ -122,7 +122,8 @@ The script assumes the MQTT broker to be [**Mosquitto**](https://mosquitto.org/)
 From the shell:
 
 ```shell
-./sysmon.sh [--daemon] mqtt-broker device-name [network-adapters] [rtt-hosts]
+./sysmon.sh [--daemon] mqtt-broker device-name topic-name [network-adapters] \
+[rtt-hosts]
 ```
 
 - `--daemon` (optional) – enable [daemon-mode](#daemon-mode); start a watchdog
@@ -206,7 +207,7 @@ RestartSec=30
 # Update the below match your environment
 User=[user]
 ExecStart=/usr/bin/env bash /home/<user>/sysmon.sh \
-  mqtt-broker "Device Name" [network-adapters] [rtt-hosts]
+  mqtt-broker "Device Name" "Topic" [network-adapters] [rtt-hosts]
 # Optional: Provide additional environment variables
 Environment=""
 
