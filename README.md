@@ -239,7 +239,7 @@ The script requires `mqtt-broker` and `device-name` to be provided. Optionally,
 `network-adapters` and `rtt-hosts` can also be passed in:
 
 ```shell
-./install.sh mqtt-broker device-name "eth0 wlan0" "router.local 8.8.8.8"
+./install.sh mqtt-broker device-name "topic/name" "eth0 wlan0" "router.local 8.8.8.8"
 ```
 
 Alternatively, if the service is already installed, the installer can be called
@@ -254,5 +254,5 @@ For the very brave, the script can be run from GitHub directly:
 ```shell
 curl -fsSL https://github.com/photomotionbv/mqtt-sysmon/raw/main/install.sh |
 sudo -E bash -s - \
-mqtt-broker device-name "eth0 wlan0" "8.8.8.8 google.com"
+mqtt-broker device-name "topic/name" "eth0 wlan0" "8.8.8.8 google.com"
 ```

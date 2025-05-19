@@ -61,11 +61,11 @@ hourly_ticks=$((3600 / 10#$SYSMON_INTERVAL))
 
 mqtt_host="${1:?"Missing MQTT-broker hostname!"}"
 device_name="${2:?"Missing device name!"}"
-topic_name="${2:="sysmon"}"
+topic_name="${3:="sysmon"}"
 
 # Optional
-read -r -a eth_adapters <<< "${3:-}"
-read -r -a rtt_hosts <<< "${4:-}"
+read -r -a eth_adapters <<< "${4:-}"
+read -r -a rtt_hosts <<< "${5:-}"
 
 # When round-trip times are to be reported, ensure the reporting interval is
 # longer than the maximum time required to complete all of the ping-commands.
