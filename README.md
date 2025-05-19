@@ -4,7 +4,7 @@ A simple shell-script to capture a handful of common metrics and push them over
 MQTT.
 
 This script has been tested on recent versions of various Linux distributions
-(Ubuntu, Raspberry Pi OS, Armbian, Alpine, and DD-WRT) on AMD64, ARM(64) and
+(Ubuntu, Raspberry Pi OS, Armbian, Alpine, and OpenWRT) on AMD64, ARM(64) and
 RISC-V based devices. Given its relative simplicity, it probably works on
 virtually any Linux device that allows installing a handful of (generic)
 dependencies.
@@ -50,7 +50,7 @@ The metrics are provided as a JSON-object in the `sysmon/[device-name]/state`
 topic.
 
 Additionally, the version of the running `sysmon-mqtt`-script is provided in
-`sysmon/[device-name]/version` and the device-model in
+`sysmon/[device-name]/version`, and a description of the device-model in
 `sysmon/[device-name]/device-model`.
 
 ### Heartbeat
@@ -254,5 +254,5 @@ For the very brave, the script can be run from GitHub directly:
 ```shell
 curl -fsSL https://github.com/photomotionbv/mqtt-sysmon/raw/main/install.sh |
 sudo -E bash -s - \
-mqtt-broker "Device Name" "eth0 wlan0" "8.8.8.8 google.com"
+mqtt-broker device-name "eth0 wlan0" "8.8.8.8 google.com"
 ```
