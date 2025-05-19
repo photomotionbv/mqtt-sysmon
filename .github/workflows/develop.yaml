@@ -6,6 +6,7 @@ name: Develop
     tags-ignore: ["**"]
 jobs:
   lint:
+    name: Lint
     uses: ./.github/workflows/linter.yml
     permissions:
       contents: read
