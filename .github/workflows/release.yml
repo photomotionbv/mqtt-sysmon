@@ -1,45 +1,35 @@
 name: Release
-
 "on":
   release:
-    types: [published]
+    types:
+      - released
+      - prereleased
 jobs:
   lint:
+    name: Lint
     uses: ./.github/workflows/linter.yml
     permissions:
       contents: read
-  build_push:
-    uses: ./.github/workflows/docker.yml
-    with:
-      release: true
-    secrets: inherit
-    permissions:
-      contents: read
-      packages: write
-    needs: lint
+      packages: read
   release:
     name: Publish release
     runs-on: ubuntu-22.04
     permissions:
       contents: write
-    needs: build_push
+    needs: [lint]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Install GitHub CLI
-        # "env.ACT" is added by nektos/act locally – using from-/toJSON prevents
-        # the GitHub Actions VS Code extension from complaining about a
-        # potentially invalid context access...
-        if: ${{ fromJSON(toJSON(env)).ACT }}
         run: |
           mkdir -p "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          gh_cli_file=gh_${GH_CLI_VERSION}_linux_amd64.tar.gz
-          wget $GH_CLI_URL/v$GH_CLI_VERSION/$gh_cli_file
-          tar -xzf $gh_cli_file
-          mv gh_${GH_CLI_VERSION}_linux_amd64/bin/gh ~/.local/bin
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          gh_cli_file="gh_${GH_CLI_VERSION}_linux_amd64.tar.gz"
+          wget "$GH_CLI_URL/v$GH_CLI_VERSION/$gh_cli_file"
+          tar -xzf "$gh_cli_file"
+          mv "gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" ~/.local/bin
         env:
-          GH_CLI_VERSION: 2.42.1
+          GH_CLI_VERSION: 2.72.0
           GH_CLI_URL: https://github.com/cli/cli/releases/download
       - name: Attach "sysmon.sh" to release
         if: ${{github.event.release.tag_name}}
@@ -48,3 +38,32 @@ jobs:
             ./sysmon.sh --clobber
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
+  merge-main:
+    name: Merge to main
+    needs: [release]
+    if: vars.AUTOMATON_APP_ID != '' && !github.event.release.prerelease
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.AUTOMATON_APP_ID }}
+          private-key: ${{ secrets.AUTOMATON_PRIVATE_KEY }}
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Git merge (fast-forward)
+        run: |
+          git config user.name "Photo-Motion automaton"
+          git config user.email "<automaton@photo-motion.com>"
+          git checkout main
+          if git merge --ff-only origin/develop; then
+            git push
+          else
+            echo "::warning::Failed to merge 'develop' into 'main'..."
+            exit 0
+          fi

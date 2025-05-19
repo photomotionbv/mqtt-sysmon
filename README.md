@@ -1,59 +1,57 @@
 # `sysmon-mqtt` — Simple system monitoring over MQTT
 
 A simple shell-script to capture a handful of common metrics and push them over
-MQTT to [Home Assistant](https://www.home-assistant.io/).
+MQTT.
 
 This script has been tested on recent versions of various Linux distributions
-(Ubuntu, Raspberry Pi OS, Armbian, Alpine, and DD-WRT) on AMD64, ARM(64) and
+(Ubuntu, Raspberry Pi OS, Armbian, Alpine, and OpenWRT) on AMD64, ARM(64) and
 RISC-V based devices. Given its relative simplicity, it probably works on
 virtually any Linux device that allows installing a handful of (generic)
 dependencies.
 
-Until December 2023, this script was part of my
-[Home Assistant configuration](https://github.com/thijsputman/home-assistant-config/tree/2ec7d637e642196f45a04fa0f99c0eeee4daba9d/extras/sysmon-mqtt)-repository
-– release history prior to that point is preserved in
-[`📄 HISTORY.md`](./HISTORY.md).
+Forked from
+[`📦 thijsputman/sysmon-mqtt`](https://github.com/thijsputman/sysmon-mqtt) in
+May of 2025.
 
 - [Metrics](#metrics)
   - [Heartbeat](#heartbeat)
-  - [Home Assistant discovery](#home-assistant-discovery)
   - [APT-check](#apt-check)
 - [Setup](#setup)
   - [Broker](#broker)
 - [Usage](#usage)
   - [Daemon-mode](#daemon-mode)
-  - [Docker](#docker)
   - [`systemd`](#systemd)
 
 ## Metrics
 
 Currently, the following metrics are provided:
 
-- `cpu_load` — the 1-minute load as a percentage of maximum nominal load (e.g.
+- `cpu-load` — the 1-minute load as a percentage of maximum nominal load (e.g.
   for a quad-core system, 100% represents a 1-minute load of 4.0)
-- `cpu_temp` — CPU temperature in degrees Celsius (read from
+- `cpu-temp` — CPU temperature in degrees Celsius (read from
   `/sys/class/thermal/thermal_zone0/temp` – omitted if not available)
-- `mem_used` — memory in use (_excluding_ buffers and caches) as a percentage of
+- `mem-used` — memory in use (_excluding_ buffers and caches) as a percentage of
   total available memory
 - `uptime` — uptime in seconds
 - `status` – overall status of the system (systemd-only;
   [as reported by `systemctl is-system-running`](https://www.freedesktop.org/software/systemd/man/systemctl.html#is-system-running))
 - `bandwidth` — average bandwidth (receive and transmit) for individual network
   adapters in kbps during the monitoring interval
-  - For wireless adapaters, signal-strength is also reported (detection based on
+  - For wireless adapters, signal-strength is also reported (detection based on
     adapter name matching the `wl*`-pattern; requires `iw`-binary)
 - `rtt` – average round-trip (ie, ping) times in ms to one or more hosts
-- `apt` — number of APT packages that can upgraded
+- `apt-packages` — number of APT packages that can upgraded
   - This assumes a Debian(-derived) distribution; the APT-related metrics are
     automatically disabled when no `apt`-binary is present
-- `reboot_required` — Reports `1` if a system reboot is required as a result of
+- `reboot-required` — Reports `1` if a system reboot is required as a result of
   APT package upgrades
 
 The metrics are provided as a JSON-object in the `sysmon/[device-name]/state`
 topic.
 
 Additionally, the version of the running `sysmon-mqtt`-script is provided in
-`sysmon/[device-name]/version`.
+`sysmon/[device-name]/version`, and a description of the device-model in
+`sysmon/[device-name]/device-model`.
 
 ### Heartbeat
 
@@ -71,27 +69,6 @@ When the script starts, a heartbeat of `-1` is reported until the script's
 _second_ iteration; this is done because some of the metrics (`bandwidth`, `rtt`
 and `apt`) are – due to various technical reasons – only reported from the
 second iteration onwards...
-
-### Home Assistant discovery
-
-By default, the script publishes
-[Home Assistant discovery](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery)
-messages to the `homeassistant/sensors/sysmon` topic.
-
-These messages are retained. Any new instance of the script started with an
-already present `device-name` will re-use the existing sensor-entity `unique_id`
-values (and thus "adopt" the previous instance's sensors in Home Assistant).
-This behaviour is intended to allow "fixed" sensor-entities in Home Assistant
-(which can easily be customised via the GUI).
-
-The `apt`-metric is presented as a Home Assistant
-[Update-entity](https://www.home-assistant.io/integrations/update.mqtt/). For
-its "entity-picture" to show, copy the images from
-[`📂 /extras/wwww`](/extras/www/) into a folder named `📂 sysmon-mqtt` in your
-Home Assistant's local webroot.
-
-To unregister (a set of) metrics from Home Assistant, simply remove the device
-from the MQTT integration (under _Settings_).
 
 ### APT-check
 
@@ -130,23 +107,15 @@ versions of `awk` are _not_ supported; you need
 Additionally, `apt` and `iw` are required to report APT status and WiFi
 signal-strength respectively – missing these dependencies is handled gracefully.
 
-When running on embedded/minimal systems (e.g. DD-WRT, or OpenWRT), apart from
-the above dependencies, `coreutils` most likely needs to be installed. In case
-this package is further split up (like on [Entware](https://entware.net/)),
-install `coreutils-mktemp`, `coreutils-nproc`, and `coreutils-timeout`.
+When running on embedded/minimal systems (e.g. OpenWRT), apart from the above
+dependencies, `coreutils` most likely needs to be installed. In case this
+package is further split up (like on [Entware](https://entware.net/)), install
+`coreutils-mktemp`, `coreutils-nproc`, and `coreutils-timeout`.
 
 ### Broker
 
 The script assumes the MQTT broker to be [**Mosquitto**](https://mosquitto.org/)
 (and uses this assumption to validate the broker configuration).
-
-Furthermore, the script relies on
-[MQTT-persistence](https://mosquitto.org/man/mosquitto-conf-5.html) to persist
-`unique_id` values for Home Assistant sensor-entities in between restarts (of
-either the script or the MQTT broker). Ensure the broker has persistence (for at
-least QoS level-1 messages) enabled. Otherwise, the unique ids used in Home
-Assistant will be dynamic (causing duplicate entities to be created after each
-restart)...
 
 ## Usage
 
@@ -159,10 +128,9 @@ From the shell:
 - `--daemon` (optional) – enable [daemon-mode](#daemon-mode); start a watchdog
   to monitor the main `sysmon-mqtt` process
 - `mqtt-broker` — hostname or IP address of the MQTT-broker
-- `device-name` — **human-friendly** name of the device being monitored (e.g.,
-  "My Raspberry Pi"); a low-fidelity version (`my_raspberry_pi`) is
-  automatically generated and used to construct MQTT-topics and Home Assistant
-  entity-ids
+- `device-name` — name of the device being monitored; a low-fidelity version
+  (e.g., `my-raspberry-pi`) is automatically generated and used to construct
+  MQTT-topics
 - `network-adapters` (optional) — one or more network adapters to monitor as a
   space-delimited list (e.g., `'eth0 wlan0'`; mind the quotes when specifying
   more than one adapter)
@@ -174,14 +142,6 @@ From the shell:
 The following _optional_ environment variables can be used to further influence
 the script's behaviour:
 
-- `SYSMON_HA_DISCOVER` (default: `true`) — set to `false` to disable publishing
-  to Home Assistant discovery topic
-- `SYSMON_HA_TOPIC` (default: `homeassistant`) — base for the Home Assistant
-  discovery topic
-- `SYSMON_HA_VERSION` (default: `202308`) — specify Home Assistant version
-  compatibility (as `YYYYMM`); based on this some behaviours are modified:
-  - `>= 202308` do _not_ prepend device name to sensor name
-    ([home-assistant/core#95159](https://github.com/home-assistant/core/pull/95159))
 - `SYSMON_INTERVAL` (default: `30`) — set the interval (in seconds) at which
   metrics are reported
   - In principle, the interval can lowered all the way down to **zero** for
@@ -208,10 +168,10 @@ Echo the `sysmon-mqtt` version and exit:
 
 ### Daemon-mode
 
-As of version 1.3.0, `sysmon-mqtt` includes a simple daemon to ensure the main
-monitoring process keeps running (ie, is restarted if it terminates). This is
-primarily intended for embedded devices running minimal Linux-distributions
-lacking amenities like [Docker](#docker) or [systemd](#systemd).
+`sysmon-mqtt` Includes a simple daemon to ensure the main monitoring process
+keeps running (ie, is restarted if it terminates). This is primarily intended
+for embedded devices running minimal Linux-distributions lacking amenities like
+[systemd](#systemd).
 
 When started with `--daemon` as its _first_ argument, `sysmon-mqtt` will start
 in daemon-mode and fork off a child-process to do the actual work (all arguments
@@ -224,80 +184,10 @@ the `SYSMON_DAEMON_LOG` environment variable.
 
 To stop the daemon, send a `SIGKILL` the _daemon_-process.
 
-### Docker
-
-The most straightforward (if slightly constrained) way of running the script is
-via the Docker-container published on
-[Docker Hub](https://hub.docker.com/r/thijsputman/sysmon-mqtt) and
-[GHCR](https://github.com/thijsputman/home-assistant-config/pkgs/container/sysmon-mqtt).
-Container images are available for `amd64`, `arm64`, and `armhf`.
-
-For bandwidth monitoring to work, you'll need to mount the host's `/sys`-sysfs
-into the container (as is done in the below
-[`📄 docker-compose.yml`](#docker-composeyml)). Alternatively, you can use
-`network_mode: host` – if you need WiFi signal-strength measurements, use the
-_latter_ approach (`iw` relies on the physical network adapter being accessible;
-mounting `/sys` doesn't suffice).
-
-The `/sys`-approach is preferred as it's more flexible (ie, it can be used to
-gather additional information such as the device model) and offers better
-security: The container's network remains isolated; instead it gains _read-only_
-access to `/sys` with Docker's AppArmor policies applied to prevent access to
-sensitive information.
-
-These AppArmor policies currently _prevent_ reporting the device model from
-inside the container though 😵 — see
-[moby#434199](https://github.com/moby/moby/issues/43419) for details. Until that
-issue is resolved, you'll need to run a privileged container (easiest, if
-slightly too broad, is via `privileged: true`) which is **_not_** worth the risk
-just to have the proper device model reported.
-
-As of version 1.3.0, `sysmon-mqtt` falls back to a more generic device model in
-case it can't read from `/sys/firmware` (e.g., "Raspberry Pi 4 Model B Rev 1.2"
-becomes "BCM2835").
-
-If you don't care about bandwidth monitoring (and/or the device model), the
-`/sys`-mount can be removed.
-
-Finally, the APT-related metrics are automatically _disabled_ when running
-inside a Docker-container. They would report the container's state instead of
-the host's state and thus make no sense. Attempting to "push" this information
-into the container is unwieldy/infeasible (and probably undesirable too).
-
-#### `docker-compose.yml`
-
-```yaml
-version: "2.3"
-services:
-  sysmon-mqtt:
-    image: thijsputman/sysmon-mqtt:latest
-    restart: unless-stopped
-    # Mount host's /sys-sysfs (read-only) into the container
-    volumes:
-      - /sys:/sys:ro
-    # Alternatively, use host networking...
-    # network_mode: host
-    # ...or run in privileged mode (strongly discouraged)
-    # privileged: true
-    environment:
-      - MQTT_BROKER=
-      - DEVICE_NAME=
-      # Optional: Specify network adapters for bandwidth monitoring and/or
-      # hostnames for round-trip times
-      - NETWORK_ADAPTERS=
-      - RTT_HOSTS=
-      # Optional: Drop permissions to the provided UID/GID-combination
-      - PUID=
-      - PGID=
-```
-
-The optional environment variables provided above can of course be passed into
-the Docker-container to further modify its behaviour.
-
 ### `systemd`
 
-Alternatively, it's possible to run the script as a `systemd`-service using
-something along the lines of the below configuration:
+It's possible to run the script as a `systemd`-service using something along the
+lines of the below configuration:
 
 **`📄 /etc/systemd/system/sysmon-mqtt.service`**
 
@@ -345,11 +235,11 @@ distributions) is provided: [`📄 install.sh`](./install.sh). Once installed,
 running the script again will pull the latest version of `📄 sysmon.sh` from
 GitHub.
 
-The script requires `mqtt-broker` and `"Device Name"` to be provided.
-Optionally, `network-adapters` and `rtt-hosts` can also be passed in:
+The script requires `mqtt-broker` and `device-name` to be provided. Optionally,
+`network-adapters` and `rtt-hosts` can also be passed in:
 
 ```shell
-./install.sh mqtt-broker "Device Name" "eth0 wlan0" "router.local 8.8.8.8"
+./install.sh mqtt-broker device-name "eth0 wlan0" "router.local 8.8.8.8"
 ```
 
 Alternatively, if the service is already installed, the installer can be called
@@ -362,7 +252,7 @@ without arguments to pull the latest version of the script:
 For the very brave, the script can be run from GitHub directly:
 
 ```shell
-curl -fsSL https://github.com/thijsputman/sysmon-mqtt/raw/main/install.sh |
+curl -fsSL https://github.com/photomotionbv/mqtt-sysmon/raw/main/install.sh |
 sudo -E bash -s - \
-mqtt-broker "Device Name" "eth0 wlan0" "8.8.8.8 google.com"
+mqtt-broker device-name "eth0 wlan0" "8.8.8.8 google.com"
 ```

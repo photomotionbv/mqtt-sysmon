@@ -3,48 +3,62 @@
 set -euo pipefail
 
 : "${USE_PIPX:=true}"
-
-# Provide a proper $GITHUB_WORKSPACE for local invocations (ie, two levels up
-# from the folder this script is in)
-: "${GITHUB_WORKSPACE:=$(dirname \
-  "$(realpath "$(dirname "${BASH_SOURCE[0]}")/../") \
-  ")}"
-
-# Some of the scripts included below assume (if not explicitly specified) a non-
-# standard location for GOPATH – by explicitly setting it to the standard
-# location (for actions/setup-go) here, the problem is avoided...
-: "${GOPATH:="$HOME/go"}"
-export GOPATH
+: "${USE_GO:=false}"
 
 if ! [[ $PATH =~ (^|:)"${HOME}/.local/bin"(:|$) ]]; then
-  echo "$HOME/.local/bin is not on PATH; aborting..." >&2
+  # shellcheck disable=SC2088
+  echo '~/.local/bin is not on PATH; aborting...'
   exit 1
 fi
 
-npm install -g markdownlint-cli@0.37.0
-npm install -g prettier@3.0.2
+if [ "$USE_GO" = true ]; then
+  go install gitlab.com/ribtoks/tdg/cmd/tdg@v0.0.7-1
+  go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.3
+fi
 
 pip_cmd=pip3
-if [ "$USE_PIPX" == true ]; then
-  pip3 install --user pipx
+if [[ $USE_PIPX == true ]]; then
+  (
+    export PIP_REQUIRE_VIRTUALENV=false
+    export PIP_BREAK_SYSTEM_PACKAGES=1
+    pip3 install --user pipx
+  )
   pip_cmd=pipx
 fi
 
 $pip_cmd install 'pre-commit==3.3.3'
 $pip_cmd install 'yamllint==1.32.0'
+$pip_cmd install 'codespell==2.3.0'
+$pip_cmd install 'check-jsonschema==0.33.0'
 
-if ! command -v shellcheck; then
-  version=v0.9.0 "${GITHUB_WORKSPACE}/.github/scripts/bins.d/shellcheck"
+# ShellCheck
+if [ ! -x ~/.local/bin/shellcheck ]; then
+
+  arch=$(uname -m)
+  shellcheck_base=https://github.com/koalaman/shellcheck/releases/download
+  shellcheck_version=v0.9.0
+
+  wget -nv -O- \
+    "${shellcheck_base}/${shellcheck_version}/shellcheck-${shellcheck_version}.linux.${arch}.tar.xz" |
+    tar -xJv
+  mv "shellcheck-${shellcheck_version}/shellcheck" ~/.local/bin
+  rm -rf "shellcheck-${shellcheck_version}"
+
+  command -v shellcheck
+
 fi
 
-if ! command -v hadolint; then
-  version=v2.12.0 "${GITHUB_WORKSPACE}/.github/scripts/bins.d/hadolint"
-fi
+# shfmt
+if [ ! -x ~/.local/bin/shfmt ]; then
 
-if ! command -v tdg; then
-  version=v0.0.2 "${GITHUB_WORKSPACE}/.github/scripts/bins.d/tdg"
-fi
+  arch=$(dpkg --print-architecture)
+  shfmt_base=https://github.com/mvdan/sh/releases/download
+  shfmt_version=v3.7.0
 
-if ! command -v shfmt; then
-  go install mvdan.cc/sh/v3/cmd/shfmt@v3.7.0
+  wget -nv -O ~/.local/bin/shfmt \
+    "${shfmt_base}/${shfmt_version}/shfmt_${shfmt_version}_linux_${arch}"
+  chmod +x ~/.local/bin/shfmt
+
+  command -v shfmt
+
 fi

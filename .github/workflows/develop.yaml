@@ -1,0 +1,13 @@
+name: Develop
+"on":
+  pull_request:
+  push:
+    branches: [develop]
+    tags-ignore: ["**"]
+jobs:
+  lint:
+    name: Lint
+    uses: ./.github/workflows/linter.yml
+    permissions:
+      contents: read
+      packages: read

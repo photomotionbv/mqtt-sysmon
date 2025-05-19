@@ -3,3 +3,6 @@ rules:
   document-start: disable
   quoted-strings:
     required: only-when-needed
+  line-length:
+    ignore:
+      - .github/workflows/*
