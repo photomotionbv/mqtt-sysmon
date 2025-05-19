@@ -38,7 +38,7 @@ then
 
 fi
 
-sysmon_url="https://github.com/thijsputman/sysmon-mqtt/raw/main/sysmon.sh"
+sysmon_url="https://github.com/photomotionbv/mqtt-sysmon/raw/main/sysmon.sh"
 
 if [ -e /etc/systemd/system/sysmon-mqtt.service ]; then
   systemctl stop sysmon-mqtt

@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-SYSMON_MQTT_VERSION='1.3.0'
-echo "sysmon-mqtt $SYSMON_MQTT_VERSION"
+SYSMON_MQTT_VERSION='2.0.0'
+echo "mqtt-sysmon $SYSMON_MQTT_VERSION (Photo-Motion)"
 
 if [ "$*" == "--version" ]; then
   exit 0
@@ -11,11 +11,7 @@ fi
 
 # Defaults for optional settings (from global environment)
 
-: "${SYSMON_HA_DISCOVER:=true}"
-: "${SYSMON_HA_TOPIC:=homeassistant}"
-: "${SYSMON_HA_VERSION:=202308}"
 : "${SYSMON_INTERVAL:=30}"
-: "${SYSMON_IN_DOCKER:=false}"
 : "${SYSMON_APT:=true}"
 : "${SYSMON_APT_CHECK:=}"
 : "${SYSMON_RTT_COUNT:=4}"
@@ -59,13 +55,6 @@ fi
 # base10 — exits in case of an invalid value for the interval
 
 hourly_ticks=$((3600 / 10#$SYSMON_INTERVAL))
-
-# APT-related metrics make no sense when running inside a Docker-container or
-# when APT is not present on the system
-
-if [ "$SYSMON_IN_DOCKER" = true ] || ! command -v apt &> /dev/null; then
-  SYSMON_APT=false
-fi
 
 # Positional parameters
 
@@ -144,7 +133,7 @@ mqtt_json_clean() {
   # just use that instead on all platforms...
 
   param=$(echo "${param//[^A-Za-z0-9_ .-]/}" |
-    tr -s ' -.' _ | gawk '{print tolower($0)}')
+    tr -s ' _.' - | gawk '{print tolower($0)}')
 
   if [ -z "$param" ]; then
     echo "Invalid parameter '$1' supplied!"
@@ -154,133 +143,12 @@ mqtt_json_clean() {
   echo "$param"
 }
 
-device=$(mqtt_json_clean "$device_name")
-ha_topic=$(mqtt_json_clean "$SYSMON_HA_TOPIC")
+# Attempt to retrieve the most sensible device-model description
 
-# Test the broker (assumes Mosquitto) — exits on failure
-mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
+device_model() {
 
-mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "sysmon/$device/connected" -m '-1' || true
-mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "sysmon/$device/version" -m "$SYSMON_MQTT_VERSION" || true
-
-# Construct Home Assistant discovery-payload
-
-ha_discover() {
-
-  local name=${1}
-  local attribute=${2}
-  # Optional
-  local icon=${3:-}
-  local device_class=${4:-}
-  local unit=${5:-}
-  local precision=${6:-2}
-
-  local value_json="value_json.${attribute//\//.}"
-  local value_template="$value_json | float(0) | round($((10#$precision)))"
-  local state_topic="sysmon/$device/state"
-  local expire_after=$((10#$SYSMON_INTERVAL * 3))
-
-  local entity=sensor
-  local entity_picture=''
-  local state_class=''
-  local category=''
-
-  # The "defined"-test in Jinja works on missing _direct_ descendants only; any
-  # deeper and it'll throw an error. This is not an issue in most cases, except
-  # for bandwidth monitoring (where, if for example "bandwidth/eth0/rx" goes
-  # missing, a test can only be performed against "bandwidth/eth0") – in those
-  # cases, pop of the last component of the attribute-path.
-
-  local availability_test=$value_json
-  if [[ $availability_test == *.bandwidth.* ]]; then
-    availability_test=${availability_test%.*}
-  fi
-
-  # Non-standard discovery-payloads
-
-  if [ "$attribute" = "heartbeat" ]; then
-    expire_after=0
-    availability_test=value
-    state_topic="sysmon/$device/connected"
-    value_template="(value | int(0) | as_datetime)"
-  elif [ "$attribute" = "version" ]; then
-    expire_after=0
-    category=diagnostic
-    availability_test=value
-    state_topic="sysmon/$device/version"
-    value_template=value
-  elif [ "$attribute" = "status" ]; then
-    value_template="$value_json"
-  elif [ "$attribute" = "apt" ]; then
-    expire_after=0
-    entity=update
-    if command -v lsb_release &> /dev/null; then
-      entity_picture="/local/sysmon-mqtt/$(lsb_release -ds | cut -d ' ' -f1 |
-        gawk '{print tolower($0)}').png"
-    fi
-    value_template="$value_json | to_json"
-  elif [ "$attribute" = "reboot_required" ]; then
-    entity=binary_sensor
-    value_template="'ON' if ($value_json | int(0)) == 1 else 'OFF'"
-  fi
-
-  # If the measurement isn't present (anymore) in the JSON-payload, report
-  # "Unknown" instead of retaining the last reported value (which happens if
-  # not explicitly set to "None").
-
-  value_template=$(
-    tr -d '\n' <<- EOF
-      {% if $availability_test is defined %}
-        {{ $value_template }}
-      {% else %}
-        {{ none }}
-      {% endif%}
-		EOF
-  ) # N.B., EOF-line should be indented with tabs!
-
-  # Report sensor as available if a hearbeat is received within the expiry-
-  # interval – if no expiry-interval is defined, a simple check (connected > 0)
-  # suffices...
-
-  local availability_template
-
-  if [ "$expire_after" -gt 0 ]; then
-    availability_template=$(
-      tr -d '\n' <<- EOF
-      'online' if (value | int(0) | as_datetime) + timedelta(
-        seconds = ${expire_after}) >= now()
-      else 'offline'
-			EOF
-    ) # N.B., EOF-line should be indented with tabs!
-  else
-    availability_template="'online' if value | int(0) > 0 else 'offline'"
-  fi
-
-  # Set state_class to "measurement" if unit_of_measurement is defined; in case
-  # of the Uptime-sensor set it to "total_increasing".
-
-  if [ -n "$unit" ]; then
-    state_class="measurement"
-    if [ "$attribute" == uptime ]; then
-      state_class="total_increasing"
-    fi
-  fi
-
-  local payload_name
   local payload_model
-
-  payload_name=$(
-    {
-      [ "$((10#$SYSMON_HA_VERSION))" -lt 202308 ] &&
-        printf "%s " "$device_name"
-      printf "%s" "$name"
-    } | jq -R -s '.'
-  )
   payload_model=""
-
-  # Attempt to retrieve the most sensible device model description
 
   # Raspberry Pi,et al.
   if [ -f /sys/firmware/devicetree/base/model ]; then
@@ -289,12 +157,7 @@ ha_discover() {
     )
   fi
 
-  # DD-WRT
-  if [ -z "$payload_model" ] && command -v nvram &> /dev/null; then
-    payload_model="$(nvram get DD_BOARD)"
-  fi
-
-  # Generic SBCs & embedded systems (e.g. OpenWRT)
+  # Generic SBCs & embedded systems
   if [ -z "$payload_model" ]; then
     payload_model=$(
       grep -i -m 1 hardware /proc/cpuinfo | cut -d ':' -f2 || true
@@ -310,106 +173,20 @@ ha_discover() {
     payload_model="${payload_model/ /}"
   fi
 
-  # Attempt to retrieve existing UUID; otherwise generate a new one
-
-  if config=$(
-    mosquitto_sub -h "$mqtt_host" -C 1 -W 3 \
-      -t "${ha_topic}/$entity/sysmon/${device}_${attribute//\//_}/config" \
-      2> /dev/null
-  ); then
-    unique_id=$(jq -r -c '.unique_id' <<< "$config" 2> /dev/null) ||
-      true # This ensures invalid JSON-payloads are ignored
-  else
-    unique_id=""
-  fi
-
-  if ! [[ "$unique_id" =~ ^[0-9a-z-]{36}$ ]]; then
-    unique_id=$(< /proc/sys/kernel/random/uuid)
-  fi
-
-  local payload
-  payload=$(
-    tr -s ' ' <<- EOF
-    {
-      "name": $payload_name,
-      "object_id": "${device}_${attribute//\//_}",
-      "unique_id": "$unique_id",
-      "device": {
-          "identifiers": "sysmon_${device}",
-          "name": $(echo -n "$device_name" | jq -R -s '.'),
-          "manufacturer": "sysmon-mqtt",
-          "model": "$payload_model",
-          "sw_version": "$(uname -smr)"
-      },
-      $([ -n "$device_class" ] && echo "\"device_class\": \"$device_class\",")
-      $([ -n "$icon" ] && echo "\"icon\": \"$icon\",")
-      $([ -n "$entity_picture" ] && echo "\"entity_picture\": \"$entity_picture\",")
-      "state_topic": "$state_topic",
-      $([ -n "$unit" ] && echo "\"unit_of_measurement\": \"$unit\",")
-      $([ -n "$state_class" ] && echo "\"state_class\": \"$state_class\",")
-      $([ -n "$category" ] && echo "\"entity_category\": \"$category\",")
-      "value_template": "$value_template",
-      "expire_after": "$expire_after",
-      "availability": {
-        "topic": "sysmon/$device/connected",
-        "payload_available": "online",
-        "payload_not_available": "offline",
-        "value_template": "{{ $availability_template }}"
-      }
-    }
-		EOF
-  ) # N.B., EOF-line should be indented with tabs!
-
-  mosquitto_pub -r -q 1 -h "$mqtt_host" \
-    -t "${ha_topic}/$entity/sysmon/${device}_${attribute//\//_}/config" \
-    -m "$payload" || true
+  echo "$payload_model"
 }
 
-if [ "$SYSMON_HA_DISCOVER" = true ]; then
+device=$(mqtt_json_clean "$device_name")
 
-  ha_discover 'Version (sysmon-mqtt)' version mdi:new-box
+# Test the broker (assumes Mosquitto) — exits on failure
+mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
 
-  ha_discover Heartbeat heartbeat mdi:heart-pulse timestamp
-  ha_discover Uptime uptime mdi:timer-outline duration s
-  ha_discover 'CPU load' cpu_load mdi:chip '' %
-  ha_discover 'Memory usage' mem_used mdi:memory '' %
-
-  if [ -r /sys/class/thermal/thermal_zone0/temp ]; then
-    ha_discover 'CPU temperature' cpu_temp '' temperature °C
-  fi
-
-  if [ -d /run/systemd/system ]; then
-    ha_discover 'Status (systemd)' status mdi:list-status enum
-  fi
-
-  for eth_adapter in "${eth_adapters[@]}"; do
-
-    ha_discover "Bandwidth in (${eth_adapter})" "bandwidth/${eth_adapter}/rx" \
-      mdi:download-network data_rate kbit/s
-    ha_discover "Bandwidth out (${eth_adapter})" "bandwidth/${eth_adapter}/tx" \
-      mdi:upload-network data_rate kbit/s
-
-    if command -v iw &> /dev/null && [[ $eth_adapter =~ ^wl ]]; then
-      ha_discover "Signal strength (${eth_adapter})" \
-        "bandwidth/${eth_adapter}/signal" \
-        mdi:wifi-strength-3 signal_strength dBm 0
-    fi
-
-  done
-
-  for rtt_host in "${rtt_hosts[@]}"; do
-
-    ha_discover "Round-trip time (${rtt_host})" \
-      "rtt/$(mqtt_json_clean "$rtt_host")" mdi:server-network '' ms 3
-
-  done
-
-  if [ "$SYSMON_APT" = true ]; then
-    ha_discover 'APT upgrades' apt mdi:package-up
-    ha_discover 'Reboot required' reboot_required mdi:restart
-  fi
-
-fi
+mosquitto_pub -r -q 1 -h "$mqtt_host" \
+  -t "sysmon/$device/connected" -m '-1' || true
+mosquitto_pub -r -q 1 -h "$mqtt_host" \
+  -t "sysmon/$device/version" -m "$SYSMON_MQTT_VERSION-pm" || true
+mosquitto_pub -r -q 1 -h "$mqtt_host" \
+  -t "sysmon/$device/device-model" -m "$(device_model)" || true
 
 # Helper functions ("private")
 
@@ -500,7 +277,7 @@ while true; do
   mem_used=$(gawk \
     '{printf "%3.2f", (1-($1/$2))*100}' <<< "$mem_avail $mem_total")
 
-  # Bandwith (in kbps; measured over the "sysmon interval")
+  # Bandwidth (in kbps; measured over the "sysmon interval")
 
   payload_bw=()
 
@@ -610,10 +387,8 @@ while true; do
 
       payload_apt+=("$(
         tr -s ' ' <<- EOF
-        "title": "APT",
-        "installed_version": "0",
-        "latest_version": "$(head -n 1 "$apt_check")",
-        "release_summary": $(tail -n +3 "$apt_check")
+        "count": "$(head -n 1 "$apt_check")",
+        "upgradable": $(tail -n +3 "$apt_check")
 				EOF
       )") # N.B., EOF-line should be indented with tabs!
 
@@ -664,9 +439,9 @@ while true; do
     tr -s ' ' <<- EOF
     {
       "uptime": "$uptime",
-      "cpu_load": "$cpu_load",
-      "mem_used": "$mem_used",
-      $([ -v cpu_temp ] && echo "\"cpu_temp\": \"$cpu_temp\",")
+      "cpu-load": "$cpu_load",
+      "mem-used": "$mem_used",
+      $([ -v cpu_temp ] && echo "\"cpu-temp\": \"$cpu_temp\",")
       $([ -v status ] && echo "\"status\": \"$status\",")
       "bandwidth": {
         $(_join , "${payload_bw[@]}")
@@ -674,8 +449,8 @@ while true; do
       "rtt": {
         $payload_rtt
       },
-      "reboot_required": "$reboot_required",
-      "apt": {
+      "reboot-required": "$reboot_required",
+      "apt-packages": {
         $(_join , "${payload_apt[@]}")
       }
     }

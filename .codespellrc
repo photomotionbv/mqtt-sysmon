@@ -1,0 +1,3 @@
+[codespell]
+skip = *-lock.json,*.lock
+ignore-words = .codespell-ignore
