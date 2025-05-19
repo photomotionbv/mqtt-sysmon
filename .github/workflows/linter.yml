@@ -28,7 +28,7 @@ jobs:
             ~/.npm
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: pre-commit-cache-${{ hashFiles('package-lock.json', '.github/scripts/setup-pre-commit.sh') }}
+          key: pre-commit-cache-${{ hashFiles('.github/scripts/setup-pre-commit.sh') }}
       - name: Setup PATH
         run: |
           mkdir -p "$HOME/.local/bin"
