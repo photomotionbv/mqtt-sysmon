@@ -122,7 +122,7 @@ The script assumes the MQTT broker to be [**Mosquitto**](https://mosquitto.org/)
 From the shell:
 
 ```shell
-./sysmon.sh [--daemon] mqtt-broker device-name topic-name [network-adapters] \
+./sysmon.sh [--daemon] mqtt-broker device-name topic [network-adapters] \
 [rtt-hosts]
 ```
 
@@ -207,7 +207,7 @@ RestartSec=30
 # Update the below match your environment
 User=[user]
 ExecStart=/usr/bin/env bash /home/<user>/sysmon.sh \
-  mqtt-broker "Device Name" "Topic" [network-adapters] [rtt-hosts]
+  mqtt-broker device-name topic [network-adapters] [rtt-hosts]
 # Optional: Provide additional environment variables
 Environment=""
 
@@ -240,7 +240,7 @@ The script requires `mqtt-broker` and `device-name` to be provided. Optionally,
 `network-adapters` and `rtt-hosts` can also be passed in:
 
 ```shell
-./install.sh mqtt-broker device-name "topic/name" "eth0 wlan0" "router.local 8.8.8.8"
+./install.sh mqtt-broker device-name example/topic "eth0 wlan0" "router.local 8.8.8.8"
 ```
 
 Alternatively, if the service is already installed, the installer can be called
@@ -255,5 +255,5 @@ For the very brave, the script can be run from GitHub directly:
 ```shell
 curl -fsSL https://github.com/photomotionbv/mqtt-sysmon/raw/main/install.sh |
 sudo -E bash -s - \
-mqtt-broker device-name "topic/name" "eth0 wlan0" "8.8.8.8 google.com"
+mqtt-broker device-name example/topic "eth0 wlan0" "8.8.8.8 google.com"
 ```
