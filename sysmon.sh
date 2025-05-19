@@ -17,7 +17,6 @@ fi
 : "${SYSMON_RTT_COUNT:=4}"
 : "${SYSMON_DAEMON_LOG:="$HOME/sysmon-mqtt.log"}"
 
-
 # Simple daemon
 
 if [ "$1" == "--daemon" ]; then
