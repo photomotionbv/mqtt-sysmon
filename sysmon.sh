@@ -60,9 +60,11 @@ hourly_ticks=$((3600 / 10#$SYSMON_INTERVAL))
 
 mqtt_host="${1:?"Missing MQTT-broker hostname!"}"
 device_name="${2:?"Missing device name!"}"
+
 # Optional
-read -r -a eth_adapters <<< "${3:-}"
-read -r -a rtt_hosts <<< "${4:-}"
+topic="${3:="sysmon"}"
+read -r -a eth_adapters <<< "${4:-}"
+read -r -a rtt_hosts <<< "${5:-}"
 
 # When round-trip times are to be reported, ensure the reporting interval is
 # longer than the maximum time required to complete all of the ping-commands.
@@ -177,16 +179,17 @@ device_model() {
 }
 
 device=$(mqtt_json_clean "$device_name")
+topic=$(mqtt_json_clean "$topic")
 
 # Test the broker (assumes Mosquitto) — exits on failure
 mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
 
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "sysmon/$device/connected" -m '-1' || true
+  -t "$topic/$device/connected" -m '-1' || true
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "sysmon/$device/version" -m "$SYSMON_MQTT_VERSION-pm" || true
+  -t "$topic/$device/version" -m "$SYSMON_MQTT_VERSION-pm" || true
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "sysmon/$device/device-model" -m "$(device_model)" || true
+  -t "$topic/$device/device-model" -m "$(device_model)" || true
 
 # Helper functions ("private")
 
@@ -458,7 +461,7 @@ while true; do
   ) # N.B., EOF-line should be indented with tabs!
 
   mosquitto_pub -h "$mqtt_host" \
-    -t "sysmon/$device/state" -m "$payload" || true
+    -t "$topic/$device/state" -m "$payload" || true
 
   # Start publishing a "heartbeat" from the second iteration onward; during the
   # _first_ iteration, set up the exit-trap: This ensures errors during init
@@ -468,7 +471,7 @@ while true; do
   if [ "$first_loop" = false ]; then
 
     mosquitto_pub -r -q 1 -h "$mqtt_host" \
-      -t "sysmon/$device/connected" -m "$(date +%s)" || true
+      -t "$topic/$device/connected" -m "$(date +%s)" || true
 
   else trap goodbye INT HUP TERM EXIT; fi
 
