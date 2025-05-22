@@ -61,7 +61,7 @@ hourly_ticks=$((3600 / 10#$SYSMON_INTERVAL))
 mqtt_host="${1:?"Missing MQTT-broker hostname!"}"
 device_name="${2:?"Missing device name!"}"
 
-# Optional
+# topic
 topic="${3:="sysmon"}"
 read -r -a eth_adapters <<< "${4:-}"
 read -r -a rtt_hosts <<< "${5:-}"
@@ -179,6 +179,7 @@ device_model() {
 }
 
 device=$(mqtt_json_clean "$device_name")
+topic=$(mqtt_json_clean "$topic")
 
 # Test the broker (assumes Mosquitto) — exits on failure
 mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
