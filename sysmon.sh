@@ -61,7 +61,7 @@ hourly_ticks=$((3600 / 10#$SYSMON_INTERVAL))
 mqtt_host="${1:?"Missing MQTT-broker hostname!"}"
 device_name="${2:?"Missing device name!"}"
 
-# topic
+# Optional
 topic="${3:="sysmon"}"
 read -r -a eth_adapters <<< "${4:-}"
 read -r -a rtt_hosts <<< "${5:-}"
