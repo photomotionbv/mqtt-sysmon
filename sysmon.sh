@@ -134,7 +134,7 @@ mqtt_json_clean() {
   # built-in tr might not support case-conversion. As gawk is required anyway,
   # just use that instead on all platforms...
 
-  param=$(echo "${param//[^A-Za-z0-9_ .-]/}" |
+  param=$(echo "${param//[^A-Za-z0-9_ .-/]/}" |
     tr -s ' _.' - | gawk '{print tolower($0)}')
 
   if [ -z "$param" ]; then
