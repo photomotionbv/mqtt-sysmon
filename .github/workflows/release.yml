@@ -41,7 +41,7 @@ jobs:
   merge-main:
     name: Merge to main
     needs: [release]
-    if: ${{!github.event.release.prerelease}}
+    if: vars.AUTOMATON_APP_ID != '' && !github.event.release.prerelease
     runs-on: ubuntu-22.04
     permissions:
       contents: write
