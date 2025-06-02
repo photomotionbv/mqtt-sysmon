@@ -104,7 +104,7 @@ goodbye() {
   fi
 
   # Sign-off from MQTT
-  mosquitto_pub -r -q 1 -h "$mqtt_host" -t "sysmon/$device/connected" -m 0 ||
+  mosquitto_pub -r -q 1 -h "$mqtt_host" -t "$topic/connected" -m 0 ||
     true
 
   exit "$rc"
@@ -178,18 +178,17 @@ device_model() {
   echo "$payload_model"
 }
 
-device=$(mqtt_json_clean "$device_name")
 topic=$(mqtt_json_clean "$topic")
 
 # Test the broker (assumes Mosquitto) — exits on failure
 mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
 
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "$topic/$device/connected" -m '-1' || true
+  -t "$topic/connected" -m '-1' || true
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "$topic/$device/version" -m "$SYSMON_MQTT_VERSION-pm" || true
+  -t "$topic/version" -m "$SYSMON_MQTT_VERSION-pm" || true
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "$topic/$device/device-model" -m "$(device_model)" || true
+  -t "$topic/device-model" -m "$(device_model)" || true
 
 # Helper functions ("private")
 
@@ -441,6 +440,7 @@ while true; do
   payload=$(
     tr -s ' ' <<- EOF
     {
+      "device-name": "$device_name",
       "uptime": "$uptime",
       "cpu-load": "$cpu_load",
       "mem-used": "$mem_used",
@@ -461,7 +461,7 @@ while true; do
   ) # N.B., EOF-line should be indented with tabs!
 
   mosquitto_pub -h "$mqtt_host" \
-    -t "$topic/$device/state" -m "$payload" || true
+    -t "$topic/state" -m "$payload" || true
 
   # Start publishing a "heartbeat" from the second iteration onward; during the
   # _first_ iteration, set up the exit-trap: This ensures errors during init
@@ -471,7 +471,7 @@ while true; do
   if [ "$first_loop" = false ]; then
 
     mosquitto_pub -r -q 1 -h "$mqtt_host" \
-      -t "$topic/$device/connected" -m "$(date +%s)" || true
+      -t "$topic/connected" -m "$(date +%s)" || true
 
   else trap goodbye INT HUP TERM EXIT; fi
 
