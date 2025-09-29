@@ -265,7 +265,7 @@ while true; do
   mem_avail=$(free | gawk 'NR==2{print $7}')
 
   # Disk space available in GB
-  disk_avail=$(df -k --output=avail / | tail -n 1 | tr -d ' ')
+  disk_avail=$(df -k --output=avail / | tail -n 1)
   disk_avail_gb=$(gawk '{printf "%d", $1/1024/1024}' <<< "$disk_avail")
 
   # Account for ZFS ARC — this is "buff/cache", but counted as "used" by the
