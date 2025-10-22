@@ -264,7 +264,7 @@ while true; do
   mem_total=$(free | gawk 'NR==2{print $2}')
   mem_avail=$(free | gawk 'NR==2{print $7}')
 
-  # Disk space available in GB
+  # Disk space available in GiB
   disk_avail=$(df -k --output=avail / | tail -n 1)
   disk_avail_gb=$(gawk '{printf "%d", $1/1024/1024}' <<< "$disk_avail")
 
