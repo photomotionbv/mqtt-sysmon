@@ -449,7 +449,7 @@ while true; do
       "device-name": "$device_name",
       "uptime": "$uptime",
       "cpu-load": "$cpu_load",
-      "disk-free": "$disk_avail_gb",
+      "disk-free": "$disk_avail",
       "mem-used": "$mem_used",
       $([ -v cpu_temp ] && echo "\"cpu-temp\": \"$cpu_temp\",")
       $([ -v status ] && echo "\"status\": \"$status\",")
