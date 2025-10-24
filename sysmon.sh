@@ -264,6 +264,12 @@ while true; do
   mem_total=$(free | gawk 'NR==2{print $2}')
   mem_avail=$(free | gawk 'NR==2{print $7}')
 
+  # Disk space available in GiB
+  disk_avail=$(
+    gawk '{printf "%d", $1/1024/1024}' <<< \
+      "$(df -k --output=avail / | tail -n 1)"
+  )
+
   # Account for ZFS ARC — this is "buff/cache", but counted as "used" by the
   # kernel in Linux. Approach taken from btop: If current ARC size is greater
   # than its minimum size (lower than which it'll never go), assume the surplus
@@ -443,6 +449,7 @@ while true; do
       "device-name": "$device_name",
       "uptime": "$uptime",
       "cpu-load": "$cpu_load",
+      "disk-free": "$disk_avail",
       "mem-used": "$mem_used",
       $([ -v cpu_temp ] && echo "\"cpu-temp\": \"$cpu_temp\",")
       $([ -v status ] && echo "\"status\": \"$status\",")

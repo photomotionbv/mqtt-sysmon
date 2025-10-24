@@ -32,6 +32,7 @@ Currently, the following metrics are provided:
   `/sys/class/thermal/thermal_zone0/temp` – omitted if not available)
 - `mem-used` — memory in use (_excluding_ buffers and caches) as a percentage of
   total available memory
+- `disk-free` - diskspace available in GiB
 - `uptime` — uptime in seconds
 - `status` – overall status of the system (systemd-only;
   [as reported by `systemctl is-system-running`](https://www.freedesktop.org/software/systemd/man/systemctl.html#is-system-running))
