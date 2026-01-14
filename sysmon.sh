@@ -465,12 +465,12 @@ while true; do
   payload=$(
     tr -s ' ' <<- EOF
     {
-      "device-name": "$device_name",
+      "deviceName": "$device_name",
       "uptime": "$uptime",
-      "cpu-load": "$cpu_load",
-      "disk-free": "$disk_avail",
-      "mem-used": "$mem_used",
-      $([ -v cpu_temp ] && echo "\"cpu-temp\": \"$cpu_temp\",")
+      "cpuLoad": "$cpu_load",
+      "diskFree": "$disk_avail",
+      "memUsed": "$mem_used",
+      $([ -v cpuTemp ] && echo "\"cpuTemp\": \"$cpu_temp\",")
       $([ -v status ] && echo "\"status\": \"$status\",")
       "bandwidth": {
         $(_join , "${payload_bw[@]}")
@@ -478,8 +478,8 @@ while true; do
       "rtt": {
         $payload_rtt
       },
-      "reboot-required": "$reboot_required",
-      "apt-packages": {
+      "rebootRequired": "$reboot_required",
+      "aptPackages": {
         $(_join , "${payload_apt[@]}")
       }
     }
