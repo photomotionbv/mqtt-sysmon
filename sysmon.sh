@@ -150,7 +150,7 @@ mqtt_json_clean() {
   # just use that instead on all platforms...
 
   param=$(echo "${param//[^A-Za-z0-9_ .-/]/}" |
-    tr -s ' _.' - | gawk '{print tolower($0)}')
+    tr -s ' .' - | gawk '{print tolower($0)}')
 
   if [ -z "$param" ]; then
     echo "Invalid parameter '$1' supplied!"
