@@ -11,7 +11,7 @@ fi
 
 # Defaults for optional settings (from global environment)
 
-: "${SYSMON_INTERVAL:=30}"
+: "${SYSMON_INTERVAL:=10}"
 : "${SYSMON_APT:=true}"
 : "${SYSMON_APT_CHECK:=}"
 : "${SYSMON_RTT_COUNT:=4}"
@@ -81,6 +81,7 @@ expand_adapters() {
   done
   shopt -u nullglob
 }
+expand_adapters
 eth_adapters=("${expanded_adapters[@]}")
 
 # When round-trip times are to be reported, ensure the reporting interval is
@@ -324,7 +325,7 @@ while true; do
         gawk '{printf "%3.2f", ($1-$2)/$3*8/1000}' \
           <<< "$tx ${tx_prev[i]} $((10#$SYSMON_INTERVAL))"
       )
-
+      ssid=''
       signal=''
       if command -v iw &> /dev/null && [[ $eth_adapter =~ ^wl ]]; then
         signal=$(
