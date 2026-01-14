@@ -67,18 +67,20 @@ read -r -a eth_adapters <<< "${4:-}"
 read -r -a rtt_hosts <<< "${5:-}"
 
 # Expand wildcard patterns in eth_adapters (e.g., wlx* -> actual device names)
-expanded_adapters=()
-shopt -s nullglob
-for adapter in "${eth_adapters[@]}"; do
-  if [[ "$adapter" == *"*"* ]]; then
-    for match in /sys/class/net/${adapter}; do
-      expanded_adapters+=("$(basename "$match")")
-    done
-  else
-    expanded_adapters+=("$adapter")
-  fi
-done
-shopt -u nullglob
+expand_adapters() {
+  trap '$(shopt -p nullglob)' RETURN
+  shopt -s nullglob
+  for adapter in "${eth_adapters[@]}"; do
+    if [[ "$adapter" == *[\*\?\[]* ]]; then
+      for match in /sys/class/net/${adapter}; do
+        expanded_adapters+=("$(basename "$match")")
+      done
+    else
+      expanded_adapters+=("$adapter")
+    fi
+  done
+  shopt -u nullglob
+}
 eth_adapters=("${expanded_adapters[@]}")
 
 # When round-trip times are to be reported, ensure the reporting interval is
@@ -150,7 +152,7 @@ mqtt_json_clean() {
   # just use that instead on all platforms...
 
   param=$(echo "${param//[^A-Za-z0-9_ .-/]/}" |
-    tr -s ' .' - | gawk '{print tolower($0)}')
+    tr -s ' _.' - | gawk '{print tolower($0)}')
 
   if [ -z "$param" ]; then
     echo "Invalid parameter '$1' supplied!"
@@ -192,8 +194,6 @@ device_model() {
 
   echo "$payload_model"
 }
-
-topic=$(mqtt_json_clean "$topic")
 
 # Test the broker (assumes Mosquitto) — exits on failure
 mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
@@ -332,8 +332,7 @@ while true; do
             grep -oE '\-[[:digit:]]+' || :
         )
         ssid=$(
-          iw "$eth_adapter" link | grep -E 'SSID:' |
-            sed 's/.*SSID: //' || :
+          iw "$eth_adapter" link | gawk '/SSID:/ { print $2 }' || :
         )
       fi
 
