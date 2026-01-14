@@ -66,6 +66,21 @@ topic="${3:="sysmon"}"
 read -r -a eth_adapters <<< "${4:-}"
 read -r -a rtt_hosts <<< "${5:-}"
 
+# Expand wildcard patterns in eth_adapters (e.g., wlx* -> actual device names)
+expanded_adapters=()
+shopt -s nullglob
+for adapter in "${eth_adapters[@]}"; do
+  if [[ "$adapter" == *"*"* ]]; then
+    for match in /sys/class/net/${adapter}; do
+      expanded_adapters+=("$(basename "$match")")
+    done
+  else
+    expanded_adapters+=("$adapter")
+  fi
+done
+shopt -u nullglob
+eth_adapters=("${expanded_adapters[@]}")
+
 # When round-trip times are to be reported, ensure the reporting interval is
 # longer than the maximum time required to complete all of the ping-commands.
 # This to prevent people from shooting themselves in the foot by setting the
@@ -316,12 +331,17 @@ while true; do
           iw "$eth_adapter" link | grep -E 'signal: \-[[:digit:]]+ dBm' |
             grep -oE '\-[[:digit:]]+' || :
         )
+        ssid=$(
+          iw "$eth_adapter" link | grep -E 'SSID:' |
+            sed 's/.*SSID: //' || :
+        )
       fi
 
       payload_bw+=("$(
         tr -s ' ' <<- EOF
         "$eth_adapter": {
           $([ -n "$signal" ] && echo "\"signal\": \"$signal\",")
+          $([ -n "$ssid" ] && echo "\"ssid\": \"$ssid\",")
           "rx": "$payload_rx",
           "tx": "$payload_tx"
         }
