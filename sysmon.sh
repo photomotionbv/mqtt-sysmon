@@ -19,7 +19,7 @@ fi
 
 # Simple daemon
 
-if [ "$1" == "--daemon" ]; then
+if [ $1 == "--daemon" ]; then
 
   touch "$SYSMON_DAEMON_LOG" || exit 1
 
@@ -68,10 +68,12 @@ read -r -a rtt_hosts <<< "${5:-}"
 
 # Expand wildcard patterns in eth_adapters (e.g., wlx* -> actual device names)
 expand_adapters() {
-  trap '$(shopt -p nullglob)' RETURN
+  expanded_adapters=""
+  # shellcheck disable=SC2064
+  trap "$(shopt -p nullglob)" RETURN
   shopt -s nullglob
   for adapter in "${eth_adapters[@]}"; do
-    if [[ "$adapter" == *[\*\?\[]* ]]; then
+    if [[ $adapter == *[\*\?\[]* ]]; then
       for match in /sys/class/net/${adapter}; do
         expanded_adapters+=("$(basename "$match")")
       done
@@ -79,7 +81,6 @@ expand_adapters() {
       expanded_adapters+=("$adapter")
     fi
   done
-  shopt -u nullglob
 }
 expand_adapters
 eth_adapters=("${expanded_adapters[@]}")
@@ -89,10 +90,10 @@ eth_adapters=("${expanded_adapters[@]}")
 # This to prevent people from shooting themselves in the foot by setting the
 # interval too low and spawning an ever increasing number of ping-commands.
 
-if [ ${#rtt_hosts[@]} -gt 0 ]; then
+if [[ ${#rtt_hosts[@]} -gt 0 ]]; then
   minimum_interval=$(((10#$SYSMON_RTT_COUNT + 1) * ${#rtt_hosts[@]} + (\
     10#$SYSMON_INTERVAL * 2 / 10)))
-  if [ $((10#$SYSMON_INTERVAL)) -lt $minimum_interval ]; then
+  if [[ $((10#$SYSMON_INTERVAL)) -lt $minimum_interval ]]; then
     echo " \-> Increased SYSMON_INTERVAL to $minimum_interval"
     SYSMON_INTERVAL=$minimum_interval
   fi
@@ -108,13 +109,13 @@ goodbye() {
   trap - EXIT
 
   # Terminate all child-processes
-  if [ -n "$(jobs -pr)" ]; then
+  if [[ -n $(jobs -pr) ]]; then
     read -ra pids < <(jobs -pr)
     kill "${pids[@]}"
   fi
 
   # Clean-up temporary files and fds/pipes
-  if [ -v apt_check ] && [ -f "$apt_check" ]; then
+  if [[ -v apt_check ]] && [[ -f $apt_check ]]; then
     rm -f "$apt_check"
   fi
   if { : >&3; } 2> /dev/null; then
@@ -142,9 +143,9 @@ mqtt_json_clean() {
   # agreeable output (assuming anything which remotely resembles an IP-address
   # is actually one).
 
-  if [[ "$param" =~ ^[0-9.]+$ ]]; then
+  if [[ $param =~ ^[0-9.]+$ ]]; then
     param="IP $param"
-  elif [[ "$param" =~ ^[0-9]+$ ]]; then
+  elif [[ $param =~ ^[0-9]+$ ]]; then
     param="N $param"
   fi
 
@@ -155,7 +156,7 @@ mqtt_json_clean() {
   param=$(echo "${param//[^A-Za-z0-9_ .-/]/}" |
     tr -s ' _.' - | gawk '{print tolower($0)}')
 
-  if [ -z "$param" ]; then
+  if [[ -z $param ]]; then
     echo "Invalid parameter '$1' supplied!"
     exit 1
   fi
@@ -171,14 +172,14 @@ device_model() {
   payload_model=""
 
   # Raspberry Pi,et al.
-  if [ -f /sys/firmware/devicetree/base/model ]; then
+  if [[ -f /sys/firmware/devicetree/base/model ]]; then
     payload_model=$(
       tr -d '\0' < /sys/firmware/devicetree/base/model || true
     )
   fi
 
   # Generic SBCs & embedded systems
-  if [ -z "$payload_model" ]; then
+  if [[ -z $payload_model ]]; then
     payload_model=$(
       grep -i -m 1 hardware /proc/cpuinfo | cut -d ':' -f2 || true
     )
@@ -186,7 +187,7 @@ device_model() {
   fi
 
   # PCs (and fallback)
-  if [ -z "$payload_model" ]; then
+  if [[ -z $payload_model ]]; then
     payload_model=$(
       grep -i -m 1 'model name' /proc/cpuinfo | cut -d ':' -f2 || true
     )
@@ -231,8 +232,8 @@ hourly=true
 ticks=0
 
 # APT-check output file (defaults to temporary file)
-if [ "$SYSMON_APT" = true ]; then
-  if [ -n "$SYSMON_APT_CHECK" ]; then
+if [[ $SYSMON_APT = true ]]; then
+  if [[ -n $SYSMON_APT_CHECK ]]; then
     touch "$SYSMON_APT_CHECK" && apt_check="$SYSMON_APT_CHECK"
   else
     apt_check=$(mktemp -t sysmon.apt-check.XXXXXXXX)
@@ -240,7 +241,7 @@ if [ "$SYSMON_APT" = true ]; then
 fi
 
 # Round-trip times output ("anonymous" pipe; fd 3)
-if [ ${#rtt_hosts[@]} -gt 0 ]; then
+if [[ ${#rtt_hosts[@]} -gt 0 ]]; then
   rtt_result=$(mktemp -u -t sysmon.rtt.XXXXXXXX)
   mkfifo "$rtt_result" && exec 3<> "$rtt_result"
   rm -f "$rtt_result"
@@ -250,7 +251,7 @@ fi
 payload_rtt=""
 
 # ZFS ARC — minimum size
-if [ -f /proc/spl/kstat/zfs/arcstats ]; then
+if [[ -f /proc/spl/kstat/zfs/arcstats ]]; then
   zfs_arc_min=$(gawk '/^c_min/ {printf "%.0f", $3/1024 }' < \
     /proc/spl/kstat/zfs/arcstats)
 fi
@@ -261,13 +262,13 @@ while true; do
   uptime=$(cut -d ' ' -f1 < /proc/uptime)
 
   # CPU temperature
-  if [ -r /sys/class/thermal/thermal_zone0/temp ]; then
+  if [[ -r /sys/class/thermal/thermal_zone0/temp ]]; then
     cpu_temp=$(gawk '{printf "%3.2f", $0/1000 }' < \
       /sys/class/thermal/thermal_zone0/temp)
   fi
 
   # Status (systemd)
-  if [ -d /run/systemd/system ]; then
+  if [[ -d /run/systemd/system ]]; then
     status=$(systemctl is-system-running || :)
   fi
 
@@ -290,10 +291,10 @@ while true; do
   # kernel in Linux. Approach taken from btop: If current ARC size is greater
   # than its minimum size (lower than which it'll never go), assume the surplus
   # to be available memory.
-  if [ -v zfs_arc_min ] && [ -n "$zfs_arc_min" ]; then
+  if [[ -v $zfs_arc_min ]] && [[ -n $zfs_arc_min ]]; then
     zfs_arc_size=$(gawk '/^size/ {printf "%.0f", $3/1024}' < \
       /proc/spl/kstat/zfs/arcstats)
-    if [ "$zfs_arc_size" -gt "$zfs_arc_min" ]; then
+    if [[ $zfs_arc_size -gt $zfs_arc_min ]]; then
       mem_avail=$((mem_avail + zfs_arc_size - zfs_arc_min))
     fi
   fi
@@ -315,7 +316,7 @@ while true; do
     tx=$(< "/sys/class/net/${eth_adapter%%/*}/statistics/tx_bytes")
 
     # Only run when "prev" is initialised
-    if [ "${#rx_prev[@]}" -eq "${#eth_adapters[@]}" ]; then
+    if [[ "${#rx_prev[@]}" -eq "${#eth_adapters[@]}" ]]; then
 
       payload_rx=$(
         gawk '{printf "%3.2f", ($1-$2)/$3*8/1000}' \
@@ -424,7 +425,7 @@ while true; do
 
     # Run apt-check and its processing once per hour
 
-    if [ "$hourly" = true ]; then
+    if [[ $hourly = true ]]; then
 
       : > "$apt_check"
 
@@ -455,7 +456,7 @@ while true; do
 
     # Reboot-required
 
-    if [ -f /var/run/reboot-required ]; then
+    if [[ -f /var/run/reboot-required ]]; then
       reboot_required=1
     fi
 
@@ -495,7 +496,7 @@ while true; do
   # (and those while gathering the first set of metrics) are not trapped and
   # will leave the connected-state as "-1".
 
-  if [ "$first_loop" = false ]; then
+  if [[ $first_loop == false ]]; then
 
     mosquitto_pub -r -q 1 -h "$mqtt_host" \
       -t "$topic/connected" -m "$(date +%s)" || true
@@ -508,7 +509,7 @@ while true; do
 
   ticks=$((ticks + 1))
   hourly=false
-  if [ "$ticks" -gt "$hourly_ticks" ]; then
+  if [[ $ticks -gt $hourly_ticks ]]; then
     hourly=true
     ticks=0
   fi
