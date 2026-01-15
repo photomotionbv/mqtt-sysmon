@@ -201,7 +201,7 @@ device_model() {
 mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
 
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "$topic/hearbeat" -m '-1' || true
+  -t "$topic/heartbeat" -m '-1' || true
 
 # Helper functions ("private")
 
