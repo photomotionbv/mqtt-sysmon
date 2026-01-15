@@ -50,8 +50,8 @@ Currently, the following metrics are provided:
   APT package upgrades
 - `version` - version of sysmon-mqtt
 
-The metrics are provided as a JSON-object in the `_hardware_/[device-name]/telemetry`
-topic.
+The metrics are provided as a JSON-object in the
+`_hardware_/[device-name]/telemetry` topic.
 
 ### Heartbeat
 
