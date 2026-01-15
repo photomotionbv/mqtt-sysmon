@@ -201,11 +201,7 @@ device_model() {
 mosquitto_sub -C 1 -h "$mqtt_host" -t \$SYS/broker/version
 
 mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "$topic/connected" -m '-1' || true
-mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "$topic/version" -m "$SYSMON_MQTT_VERSION-pm" || true
-mosquitto_pub -r -q 1 -h "$mqtt_host" \
-  -t "$topic/device-model" -m "$(device_model)" || true
+  -t "$topic/hearbeat" -m '-1' || true
 
 # Helper functions ("private")
 
@@ -257,6 +253,15 @@ if [[ -f /proc/spl/kstat/zfs/arcstats ]]; then
 fi
 
 while true; do
+
+  mosquitto_pub -r -q 1 -h "$mqtt_host" \
+    -t "$topic/version" -m "$SYSMON_MQTT_VERSION-pm" || true
+
+  # Device model
+  device_model="$(device_model)"
+
+  # sysmon-mqtt version
+  sysmon_version="$SYSMON_MQTT_VERSION-pm"
 
   # Uptime
   uptime=$(cut -d ' ' -f1 < /proc/uptime)
@@ -468,6 +473,7 @@ while true; do
     tr -s ' ' <<- EOF
     {
       "deviceName": "$device_name",
+      "deviceModel": "$device_model",
       "uptime": "$uptime",
       "cpuLoad": "$cpu_load",
       "diskFree": "$disk_avail",
@@ -481,6 +487,7 @@ while true; do
         $payload_rtt
       },
       "rebootRequired": "$reboot_required",
+      "version": "$sysmon_version",
       "aptPackages": {
         $(_join , "${payload_apt[@]}")
       }
@@ -489,7 +496,7 @@ while true; do
   ) # N.B., EOF-line should be indented with tabs!
 
   mosquitto_pub -h "$mqtt_host" \
-    -t "$topic/state" -m "$payload" || true
+    -t "$topic/telemetry" -m "$payload" || true
 
   # Start publishing a "heartbeat" from the second iteration onward; during the
   # _first_ iteration, set up the exit-trap: This ensures errors during init
