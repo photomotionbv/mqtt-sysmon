@@ -11,7 +11,7 @@ fi
 
 # Defaults for optional settings (from global environment)
 
-: "${SYSMON_INTERVAL:=10}"
+: "${SYSMON_INTERVAL:=30}"
 : "${SYSMON_APT:=true}"
 : "${SYSMON_APT_CHECK:=}"
 : "${SYSMON_RTT_COUNT:=4}"
@@ -506,7 +506,7 @@ while true; do
   if [[ $first_loop == false ]]; then
 
     mosquitto_pub -r -q 1 -h "$mqtt_host" \
-      -t "$topic/connected" -m "$(date +%s)" || true
+      -t "$topic/heartbeat" -m "$(date +%s)" || true
 
   else trap goodbye INT HUP TERM EXIT; fi
 
