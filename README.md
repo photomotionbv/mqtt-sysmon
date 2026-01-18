@@ -56,9 +56,10 @@ The metrics are provided as a JSON-object in the
 ### Heartbeat
 
 A persistent `sysmon/[device-name]/heartbeat` topic is provided as an indication
-of whether the script is active. Its value works as a "heartbeat": It contains
-the Unix timestamp of the most recent reporting iteration, `-1` while the script
-is initialising, and `0` if the script was gracefully shutdown.
+of whether the script, and by extension, the device is active. Its value works
+as a "heartbeat": It contains the Unix timestamp of the most recent reporting
+iteration, `-1` while the script is initialising, and `0` if the script was
+gracefully shutdown.
 
 In case a stale timestamp is present, it may be assumed the script (or the
 machine its running on) has crashed / dropped from the network. Stale is best
