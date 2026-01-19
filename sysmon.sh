@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SYSMON_MQTT_VERSION='2.0.0'
+SYSMON_MQTT_VERSION='2.1.5'
 echo "mqtt-sysmon $SYSMON_MQTT_VERSION (Photo-Motion)"
 
 if [ "$*" == "--version" ]; then
@@ -68,7 +68,7 @@ read -r -a rtt_hosts <<< "${5:-}"
 
 # Expand wildcard patterns in eth_adapters (e.g., wlx* -> actual device names)
 expand_adapters() {
-  expanded_adapters=""
+  expanded_adapters=()
   # shellcheck disable=SC2064
   trap "$(shopt -p nullglob)" RETURN
   shopt -s nullglob
@@ -296,7 +296,7 @@ while true; do
   # kernel in Linux. Approach taken from btop: If current ARC size is greater
   # than its minimum size (lower than which it'll never go), assume the surplus
   # to be available memory.
-  if [[ -v $zfs_arc_min ]] && [[ -n $zfs_arc_min ]]; then
+  if [[ -v zfs_arc_min ]] && [[ -n $zfs_arc_min ]]; then
     zfs_arc_size=$(gawk '/^size/ {printf "%.0f", $3/1024}' < \
       /proc/spl/kstat/zfs/arcstats)
     if [[ $zfs_arc_size -gt $zfs_arc_min ]]; then
