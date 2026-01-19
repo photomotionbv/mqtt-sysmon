@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SYSMON_MQTT_VERSION='2.0.0'
+SYSMON_MQTT_VERSION='2.1.5'
 echo "mqtt-sysmon $SYSMON_MQTT_VERSION (Photo-Motion)"
 
 if [ "$*" == "--version" ]; then
@@ -68,7 +68,7 @@ read -r -a rtt_hosts <<< "${5:-}"
 
 # Expand wildcard patterns in eth_adapters (e.g., wlx* -> actual device names)
 expand_adapters() {
-  expanded_adapters=""
+  expanded_adapters=()
   # shellcheck disable=SC2064
   trap "$(shopt -p nullglob)" RETURN
   shopt -s nullglob
