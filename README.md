@@ -26,13 +26,15 @@ May of 2025.
 
 Currently, the following metrics are provided:
 
-- `cpu-load` — the 1-minute load as a percentage of maximum nominal load (e.g.
+- `cpuLoad` — the 1-minute load as a percentage of maximum nominal load (e.g.
   for a quad-core system, 100% represents a 1-minute load of 4.0)
-- `cpu-temp` — CPU temperature in degrees Celsius (read from
+- `cpuTemp` — CPU temperature in degrees Celsius (read from
   `/sys/class/thermal/thermal_zone0/temp` – omitted if not available)
-- `mem-used` — memory in use (_excluding_ buffers and caches) as a percentage of
+- `memUsed` — memory in use (_excluding_ buffers and caches) as a percentage of
   total available memory
-- `disk-free` - diskspace available in GiB
+- `diskFree` - diskspace available in GiB
+- `deviceName` - name of the device
+- `deviceModel` - type of the device
 - `uptime` — uptime in seconds
 - `status` – overall status of the system (systemd-only;
   [as reported by `systemctl is-system-running`](https://www.freedesktop.org/software/systemd/man/systemctl.html#is-system-running))
@@ -41,25 +43,23 @@ Currently, the following metrics are provided:
   - For wireless adapters, signal-strength is also reported (detection based on
     adapter name matching the `wl*`-pattern; requires `iw`-binary)
 - `rtt` – average round-trip (ie, ping) times in ms to one or more hosts
-- `apt-packages` — number of APT packages that can upgraded
+- `aptPackages` — number of APT packages that can upgraded
   - This assumes a Debian(-derived) distribution; the APT-related metrics are
     automatically disabled when no `apt`-binary is present
-- `reboot-required` — Reports `1` if a system reboot is required as a result of
+- `rebootRequired` — Reports `1` if a system reboot is required as a result of
   APT package upgrades
+- `version` - version of sysmon-mqtt
 
-The metrics are provided as a JSON-object in the `sysmon/[device-name]/state`
-topic.
-
-Additionally, the version of the running `sysmon-mqtt`-script is provided in
-`sysmon/[device-name]/version`, and a description of the device-model in
-`sysmon/[device-name]/device-model`.
+The metrics are provided as a JSON-object in the
+`_hardware_/[device-name]/telemetry` topic.
 
 ### Heartbeat
 
-A persistent `sysmon/[device-name]/connected` topic is provided as an indication
-of whether the script is active. Its value works as a "heartbeat": It contains
-the Unix timestamp of the most recent reporting iteration, `-1` while the script
-is initialising, and `0` if the script was gracefully shutdown.
+A persistent `sysmon/[device-name]/heartbeat` topic is provided as an indication
+of whether the script, and by extension, the device is active. Its value works
+as a "heartbeat": It contains the Unix timestamp of the most recent reporting
+iteration, `-1` while the script is initialising, and `0` if the script was
+gracefully shutdown.
 
 In case a stale timestamp is present, it may be assumed the script (or the
 machine its running on) has crashed / dropped from the network. Stale is best
